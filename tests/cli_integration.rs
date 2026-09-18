@@ -162,6 +162,11 @@ fn no_force_and_output_formats_work_through_the_binary() {
             "{\"address\":\"0x20\",\"value\":42}\n",
         ),
         (vec!["--decimal-output"], "Address 0x20=42\n"),
+        (vec!["-d"], "Address 0x20=42\n"),
+        (
+            vec!["--json", "-d"],
+            "{\"address\":\"0x20\",\"value\":42}\n",
+        ),
     ] {
         let mut args = vec!["--no-force", "reg", "read", "0x20"];
         args.extend(flags);

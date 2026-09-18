@@ -28,7 +28,7 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub json: bool,
     /// Print decimal values; addresses stay hexadecimal and input parsing is unchanged
-    #[arg(long, global = true)]
+    #[arg(short = 'd', long, global = true)]
     pub decimal_output: bool,
     #[command(subcommand)]
     pub operation: Operation,
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn input_radix_is_independent_of_output_format() {
-        for output in ["--json", "--decimal-output"] {
+        for output in ["--json", "--decimal-output", "-d"] {
             let cli = parse(&["reg", "write", "20", "0x2a", output]).unwrap();
             assert!(matches!(
                 cli.operation,

@@ -59,6 +59,7 @@ Add these options to a register command:
 | `--json --decimal-output` | `{"address":"0x20","value":42}` |
 
 Addresses always use hexadecimal output. Use `--decimal-output` to show only the value in decimal.
+Use `-d` as the short form of `--decimal-output`.
 
 Use `--timeout 10s` to change the default timeout of two seconds.
 For `command`, this timeout also sets the output collection period after acknowledgement.
