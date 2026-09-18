@@ -12,6 +12,23 @@ cargo build --release --locked
 
 The executable is `target/release/register-cli` on Linux and `target/release/register-cli.exe` on Windows. Run `cargo test --locked` to exercise the parser, protocol, and mock TCP frame tests without hardware.
 
+### Build both platforms with Docker
+
+With Docker running in Linux-container mode and Buildx installed, run:
+
+```sh
+docker buildx build --platform linux/amd64 --output type=local,dest=dist .
+```
+
+This exports both x86-64 release binaries to the host:
+
+- `dist/linux-x86_64/register-cli`, linked statically with musl.
+- `dist/windows-x86_64/register-cli.exe`, built with MinGW.
+
+No host Rust toolchain is needed. The Docker build runs the Linux tests and checks the Windows executable for unexpected compiler runtime DLL dependencies. It does not run the Windows executable. The final Docker stage contains build artifacts, not a runnable container.
+
+The build defaults to Rust 1.98.1. Override it with `--build-arg RUST_VERSION=<version>` when updating the toolchain. Keep `--platform linux/amd64` on ARM hosts too; the builder must support x86-64 emulation. The build context includes only manifests, source, tests, and Docker configuration.
+
 ## Usage
 
 Specify the frame host and card slot before the subcommand. Slots range from 1 through 20. The TCP port defaults to 5253; override it with `--port`.
