@@ -8,7 +8,7 @@ A register read performs one operation by default. An optional user-specified in
 
 Dedicated register operations interpret unprefixed addresses and values as decimal, and inputs with a `0x` prefix as hexadecimal. They reject malformed and out-of-range inputs instead of relying on firmware truncation. This parsing rule does not rewrite text supplied to generic `command` mode.
 
-Default output uses hexadecimal in the form `Address 0x20=0x2a`. The `--decimal-output` option selects decimal output without changing input parsing. A `--json` option provides structured output, with hexadecimal strings by default, such as `{"address":"0x20","value":"0x2a"}`. With `--json --decimal-output`, the output uses JSON numbers, such as `{"address":32,"value":42}`.
+Default output uses hexadecimal in the form `Address 0x20=0x2a`. Addresses always remain hexadecimal. The `--decimal-output` option changes only the value to decimal, as in `Address 0x20=42`, without changing input parsing. A `--json` option provides structured output, with hexadecimal strings by default, such as `{"address":"0x20","value":"0x2a"}`. With `--json --decimal-output`, the address remains a hexadecimal string and the value becomes a JSON number, as in `{"address":"0x20","value":42}`.
 
 Register writes require the reported readback to equal the requested value and fail on a mismatch. A matching readback still cannot prove hardware access success because the firmware does not report those failures.
 

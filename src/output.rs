@@ -30,14 +30,14 @@ fn write_register(
 ) -> io::Result<()> {
     if json {
         let result = if decimal {
-            serde_json::json!({ "address": address, "value": value })
+            serde_json::json!({ "address": format!("0x{address:x}"), "value": value })
         } else {
             serde_json::json!({ "address": format!("0x{address:x}"), "value": format!("0x{value:x}") })
         };
         serde_json::to_writer(&mut *writer, &result)?;
         writeln!(writer)?;
     } else if decimal {
-        writeln!(writer, "Address {address}={value}")?;
+        writeln!(writer, "Address 0x{address:x}={value}")?;
     } else {
         writeln!(writer, "Address 0x{address:x}=0x{value:x}")?;
     }
@@ -65,9 +65,9 @@ mod tests {
     fn register_formats_match_the_public_contract() {
         for (json, decimal, expected) in [
             (false, false, "Address 0x20=0x2a\n"),
-            (false, true, "Address 32=42\n"),
+            (false, true, "Address 0x20=42\n"),
             (true, false, "{\"address\":\"0x20\",\"value\":\"0x2a\"}\n"),
-            (true, true, "{\"address\":32,\"value\":42}\n"),
+            (true, true, "{\"address\":\"0x20\",\"value\":42}\n"),
         ] {
             let mut bytes = Vec::new();
             write_register(&mut bytes, 32, 42, json, decimal).unwrap();

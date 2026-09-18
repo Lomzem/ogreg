@@ -63,6 +63,18 @@ fn expect_closed_without_another_command(stream: &mut TcpStream) {
     }
 }
 
+fn configure_peer(stream: &TcpStream) {
+    // Windows accepted sockets inherit the listener's nonblocking mode.
+    stream.set_nonblocking(false).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    stream.set_nodelay(true).unwrap();
+}
+
 fn run(args: &[&str], server: impl FnOnce(&mut TcpStream) + Send + 'static) -> Output {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port().to_string();
@@ -79,13 +91,7 @@ fn run(args: &[&str], server: impl FnOnce(&mut TcpStream) + Send + 'static) -> O
                 Err(error) => panic!("accept failed: {error}"),
             }
         };
-        stream
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        stream
-            .set_write_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        stream.set_nodelay(true).unwrap();
+        configure_peer(&stream);
         server(&mut stream);
     });
     let output = Command::new(env!("CARGO_BIN_EXE_ogreg"))
@@ -95,6 +101,29 @@ fn run(args: &[&str], server: impl FnOnce(&mut TcpStream) + Send + 'static) -> O
         .unwrap();
     peer.join().unwrap();
     output
+}
+
+#[test]
+fn accepted_peer_waits_for_data_after_inheriting_nonblocking_mode() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let _client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (mut stream, _) = listener.accept().unwrap();
+    // Reproduce Windows accept behavior on every test platform.
+    stream.set_nonblocking(true).unwrap();
+    configure_peer(&stream);
+    stream
+        .set_read_timeout(Some(Duration::from_millis(100)))
+        .unwrap();
+    let started = Instant::now();
+    let error = stream.read_exact(&mut [0; 1]).unwrap_err();
+    assert!(matches!(
+        error.kind(),
+        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+    ));
+    assert!(
+        started.elapsed() >= Duration::from_millis(50),
+        "accepted peer returned immediately instead of waiting for data: {error}"
+    );
 }
 
 fn assert_success(output: &Output, expected: &str) {
@@ -130,9 +159,9 @@ fn no_force_and_output_formats_work_through_the_binary() {
         ),
         (
             vec!["--json", "--decimal-output"],
-            "{\"address\":32,\"value\":42}\n",
+            "{\"address\":\"0x20\",\"value\":42}\n",
         ),
-        (vec!["--decimal-output"], "Address 32=42\n"),
+        (vec!["--decimal-output"], "Address 0x20=42\n"),
     ] {
         let mut args = vec!["--no-force", "reg", "read", "0x20"];
         args.extend(flags);

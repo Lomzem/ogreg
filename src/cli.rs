@@ -27,7 +27,7 @@ pub struct Cli {
     /// Print one JSON object per result or received text message
     #[arg(long, global = true)]
     pub json: bool,
-    /// Print decimal register addresses and values; input parsing is unchanged
+    /// Print decimal values; addresses stay hexadecimal and input parsing is unchanged
     #[arg(long, global = true)]
     pub decimal_output: bool,
     #[command(subcommand)]
