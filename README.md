@@ -18,6 +18,11 @@ Find the executables in these directories:
 To build for your current system with Rust, run `cargo build --release --locked`.
 Find the executable in `target/release/`.
 
+## Download a CI build
+
+Open the repository's **Actions** tab. Select a successful **Build** run.
+Download the Linux or Windows archive from **Artifacts**. Extract the executable before use.
+
 ## Use
 
 Copy the executable to a directory in `PATH`. On Windows, use `ogreg.exe`.

@@ -1,0 +1,98 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: 1.98.1
+  CARGO_TERM_COLOR: always
+  CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+  CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            executable: ogreg
+            archive: ogreg-linux-x86_64.tar.gz
+          - platform: Windows
+            os: windows-2025
+            target: x86_64-pc-windows-msvc
+            executable: ogreg.exe
+            archive: ogreg-windows-x86_64.zip
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      EXECUTABLE: ${{ matrix.executable }}
+      ARCHIVE: ${{ matrix.archive }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install Linux linker
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt --component clippy --target "$BUILD_TARGET"
+          rustup override set "$RUST_TOOLCHAIN"
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Check code
+        run: cargo clippy --locked --all-targets --target "$BUILD_TARGET" -- -D warnings
+
+      - name: Run tests
+        run: cargo test --locked --target "$BUILD_TARGET"
+
+      - name: Build release
+        run: cargo build --release --locked --target "$BUILD_TARGET"
+
+      - name: Check executable
+        run: '"target/$BUILD_TARGET/release/$EXECUTABLE" --version'
+
+      - name: Package Linux executable
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          tar -czf "dist/$ARCHIVE" -C "target/$BUILD_TARGET/release" "$EXECUTABLE"
+
+      - name: Package Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "target/$env:BUILD_TARGET/release/$env:EXECUTABLE" -DestinationPath "dist/$env:ARCHIVE"
+
+      - name: Upload executable
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          path: dist/${{ matrix.archive }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30

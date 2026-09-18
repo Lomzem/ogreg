@@ -179,7 +179,7 @@ fn writes_require_matching_readback_and_never_retry() {
 #[test]
 fn generic_register_commands_preserve_text_and_collect_for_the_window() {
     for text in ["fpgarr 0x20", "fpgarw 0x20 0xff"] {
-        let output = run(&["command", text, "--timeout", "250ms"], move |stream| {
+        let output = run(&["command", text, "--timeout", "1s"], move |stream| {
             handshake(stream, true);
             expect_command(stream, text);
             send(stream, 0x14, 0, b"unrelated\0");
@@ -190,7 +190,7 @@ fn generic_register_commands_preserve_text_and_collect_for_the_window() {
             send(stream, 0x13, 0, b"Register 0x20 = 0x2a\0");
             send(stream, 0x13, 0, b"already terminated\n\0");
             expect_closed_without_another_command(stream);
-            assert!(acknowledged.elapsed() >= Duration::from_millis(230));
+            assert!(acknowledged.elapsed() >= Duration::from_millis(950));
         });
         assert_success(
             &output,
@@ -203,7 +203,7 @@ fn generic_register_commands_preserve_text_and_collect_for_the_window() {
 fn missing_acknowledgement_and_missing_register_are_errors() {
     for acknowledge in [false, true] {
         let output = run(
-            &["reg", "read", "0x20", "--timeout", "150ms"],
+            &["reg", "read", "0x20", "--timeout", "500ms"],
             move |stream| {
                 handshake(stream, true);
                 expect_command(stream, "fpgarr 0x20");
@@ -229,7 +229,7 @@ fn missing_acknowledgement_and_missing_register_are_errors() {
 #[test]
 fn polling_reuses_connection_spaces_requests_and_stops_on_disconnect() {
     let output = run(
-        &["reg", "read", "0x20", "--poll", "150ms", "--timeout", "1s"],
+        &["reg", "read", "0x20", "--poll", "150ms", "--timeout", "2s"],
         |stream| {
             handshake(stream, true);
             let mut previous = None;
@@ -276,7 +276,7 @@ fn refusal_and_command_rejection_are_nonzero() {
 #[test]
 fn generic_command_without_acknowledgement_fails_after_printing_received_text() {
     let output = run(
-        &["command", "fpgarr 0x20", "--timeout", "150ms", "--json"],
+        &["command", "fpgarr 0x20", "--timeout", "500ms", "--json"],
         |stream| {
             handshake(stream, true);
             expect_command(stream, "fpgarr 0x20");
