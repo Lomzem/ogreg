@@ -27,24 +27,24 @@ COPY tests/ ./tests/
 FROM toolchain AS linux-build
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=/build/target,id=register-cli-linux,sharing=locked \
+    --mount=type=cache,target=/build/target,id=ogreg-linux,sharing=locked \
     cargo test --locked --target x86_64-unknown-linux-musl \
     && cargo build --release --locked --target x86_64-unknown-linux-musl \
     && mkdir -p /out/linux-x86_64 \
-    && cp target/x86_64-unknown-linux-musl/release/register-cli /out/linux-x86_64/ \
-    && /out/linux-x86_64/register-cli --version \
-    && file /out/linux-x86_64/register-cli \
-    && file -b /out/linux-x86_64/register-cli | grep -Eq 'ELF 64-bit.*x86-64.*static'
+    && cp target/x86_64-unknown-linux-musl/release/ogreg /out/linux-x86_64/ \
+    && /out/linux-x86_64/ogreg --version \
+    && file /out/linux-x86_64/ogreg \
+    && file -b /out/linux-x86_64/ogreg | grep -Eq 'ELF 64-bit.*x86-64.*static'
 
 FROM toolchain AS windows-build
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=/build/target,id=register-cli-windows,sharing=locked \
+    --mount=type=cache,target=/build/target,id=ogreg-windows,sharing=locked \
     cargo build --release --locked --target x86_64-pc-windows-gnu \
     && mkdir -p /out/windows-x86_64 \
-    && cp target/x86_64-pc-windows-gnu/release/register-cli.exe /out/windows-x86_64/ \
-    && file /out/windows-x86_64/register-cli.exe \
-    && x86_64-w64-mingw32-objdump -p /out/windows-x86_64/register-cli.exe > /out/imports.txt \
+    && cp target/x86_64-pc-windows-gnu/release/ogreg.exe /out/windows-x86_64/ \
+    && file /out/windows-x86_64/ogreg.exe \
+    && x86_64-w64-mingw32-objdump -p /out/windows-x86_64/ogreg.exe > /out/imports.txt \
     && if grep -Eiq 'DLL Name: (libgcc|libstdc\+\+|libwinpthread)' /out/imports.txt; then \
         cat /out/imports.txt >&2; \
         echo "The executable requires an unexpected compiler runtime DLL." >&2; \

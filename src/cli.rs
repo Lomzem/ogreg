@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 #[command(
     version,
     about = "Read registers and send device commands",
-    after_help = "Example: register-cli --host 192.0.2.1 --slot 3 reg read 0x20\nPlace --host and --slot before the subcommand."
+    after_help = "Example: ogreg --host 192.0.2.1 --slot 3 reg read 0x20\nPlace --host and --slot before the subcommand."
 )]
 pub struct Cli {
     /// Frame hostname or IP address
@@ -123,7 +123,7 @@ mod tests {
 
     fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
         Cli::try_parse_from(
-            ["register-cli", "--host", "192.0.2.1", "--slot", "3"]
+            ["ogreg", "--host", "192.0.2.1", "--slot", "3"]
                 .into_iter()
                 .chain(args.iter().copied()),
         )
@@ -197,11 +197,11 @@ mod tests {
 
     #[test]
     fn target_is_required_and_slot_is_validated() {
-        assert!(Cli::try_parse_from(["register-cli", "reg", "read", "0"]).is_err());
+        assert!(Cli::try_parse_from(["ogreg", "reg", "read", "0"]).is_err());
         for slot in ["0", "21", "255"] {
             assert!(
                 Cli::try_parse_from([
-                    "register-cli",
+                    "ogreg",
                     "--host",
                     "192.0.2.1",
                     "--slot",

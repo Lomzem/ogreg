@@ -236,7 +236,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "register-cli"
+name = "ogreg"
 version = "0.1.0"
 dependencies = [
  "clap",

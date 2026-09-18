@@ -88,7 +88,7 @@ fn run(args: &[&str], server: impl FnOnce(&mut TcpStream) + Send + 'static) -> O
         stream.set_nodelay(true).unwrap();
         server(&mut stream);
     });
-    let output = Command::new(env!("CARGO_BIN_EXE_register-cli"))
+    let output = Command::new(env!("CARGO_BIN_EXE_ogreg"))
         .args(["--host", "127.0.0.1", "--port", &port, "--slot", "3"])
         .args(args)
         .output()
