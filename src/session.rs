@@ -28,7 +28,12 @@ pub fn run(args: &Cli, interrupted: &AtomicBool, output: &mut impl Write) -> Res
                     *address,
                     interrupted,
                 )?;
-                format.write_register(output, *address, value)?;
+                if poll.is_some() {
+                    let received_at = time::OffsetDateTime::now_utc();
+                    format.write_polled_register(output, *address, value, received_at)?;
+                } else {
+                    format.write_register(output, *address, value)?;
+                }
                 let Some(interval) = poll else { break };
                 wait_until(deadline(started, *interval)?, interrupted)?;
             },

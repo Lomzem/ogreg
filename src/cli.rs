@@ -55,7 +55,7 @@ pub enum RegisterOperation {
         /// Register address, 0..16777215 or 0x0..0xffffff
         #[arg(value_parser = parse_address)]
         address: u32,
-        /// Repeat reads at this interval, such as 500ms or 2s, until interrupted
+        /// Repeat timestamped reads at this interval, such as 500ms or 2s
         #[arg(long, value_parser = parse_duration)]
         poll: Option<Duration>,
     },

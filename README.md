@@ -69,3 +69,22 @@ Press Ctrl+C to stop repeated reads. The tool stops on an error and returns a no
 A failed device read can report zero. Other clients can cause the tool to show an earlier result.
 
 Run `ogreg --help` for more options.
+
+## Save repeated reads
+
+Each repeated read includes a UTC timestamp with millisecond precision.
+The timestamp records when the tool receives the result.
+Each line writes to the file immediately.
+
+```sh
+ogreg --host 192.0.2.1 --slot 3 reg read 0x20 --poll 1s --json >> reads.jsonl 2>> errors.log
+```
+
+Example line:
+
+```json
+{"timestamp":"2026-09-18T02:30:00.123Z","address":"0x20","value":"0x2a"}
+```
+
+Keep the computer awake. Press Ctrl+C to stop.
+A timeout or connection error stops the reads.

@@ -257,9 +257,18 @@ fn missing_acknowledgement_and_missing_register_are_errors() {
 
 #[test]
 fn polling_reuses_connection_spaces_requests_and_stops_on_disconnect() {
-    let output = run(
-        &["reg", "read", "0x20", "--poll", "150ms", "--timeout", "2s"],
-        |stream| {
+    let timestamp_format = time::macros::format_description!(
+        "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z"
+    );
+    for json in [false, true] {
+        let mut args = vec!["reg", "read", "0x20", "--poll", "150ms", "--timeout", "2s"];
+        if json {
+            args.extend(["--json", "--decimal-output"]);
+        }
+        let started = time::OffsetDateTime::now_utc()
+            .format(timestamp_format)
+            .unwrap();
+        let output = run(&args, |stream| {
             handshake(stream, true);
             let mut previous = None;
             for index in 0..3 {
@@ -275,11 +284,34 @@ fn polling_reuses_connection_spaces_requests_and_stops_on_disconnect() {
                 send(stream, 0x13, 0xc4, &[0]);
                 send(stream, 0x13, 0, b"Register 0x20 = 0x2a\0");
             }
-        },
-    );
-    assert!(!output.status.success());
-    assert_eq!(output.stdout, b"Address 0x20=0x2a\nAddress 0x20=0x2a\n");
-    assert!(String::from_utf8_lossy(&output.stderr).contains("connection"));
+        });
+        let ended = time::OffsetDateTime::now_utc()
+            .format(timestamp_format)
+            .unwrap();
+        assert!(!output.status.success());
+        let text = String::from_utf8(output.stdout).unwrap();
+        let lines: Vec<_> = text.lines().collect();
+        assert_eq!(lines.len(), 2);
+        for line in lines {
+            let timestamp = if json {
+                let sample: serde_json::Value = serde_json::from_str(line).unwrap();
+                assert_eq!(sample["address"], "0x20");
+                assert_eq!(sample["value"], 42);
+                sample["timestamp"].as_str().unwrap().to_owned()
+            } else {
+                let (timestamp, result) = line.split_once(' ').unwrap();
+                assert_eq!(result, "Address 0x20=0x2a");
+                timestamp.to_owned()
+            };
+            assert_eq!(timestamp.len(), 24);
+            assert!(timestamp.ends_with('Z'));
+            assert!(
+                timestamp >= started && timestamp <= ended,
+                "timestamp outside read interval: {timestamp}"
+            );
+        }
+        assert!(String::from_utf8_lossy(&output.stderr).contains("connection"));
+    }
 }
 
 #[test]

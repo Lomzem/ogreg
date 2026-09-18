@@ -1,5 +1,7 @@
 use std::io::{self, Write};
 
+use time::{OffsetDateTime, UtcOffset, macros::format_description};
+
 #[derive(Debug, Clone, Copy)]
 pub struct OutputFormat {
     pub json: bool,
@@ -13,35 +15,58 @@ impl OutputFormat {
         address: u32,
         value: u8,
     ) -> io::Result<()> {
-        write_register(writer, address, value, self.json, self.decimal_output)
+        self.write_register_record(writer, address, value, None)
+    }
+
+    pub fn write_polled_register(
+        &self,
+        writer: &mut impl Write,
+        address: u32,
+        value: u8,
+        timestamp: OffsetDateTime,
+    ) -> io::Result<()> {
+        let timestamp = timestamp
+            .to_offset(UtcOffset::UTC)
+            .format(format_description!(
+                "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]Z"
+            ))
+            .map_err(io::Error::other)?;
+        self.write_register_record(writer, address, value, Some(&timestamp))
     }
 
     pub fn write_text(&self, writer: &mut impl Write, text: &str) -> io::Result<()> {
         write_text(writer, text, self.json)
     }
-}
-
-fn write_register(
-    writer: &mut impl Write,
-    address: u32,
-    value: u8,
-    json: bool,
-    decimal: bool,
-) -> io::Result<()> {
-    if json {
-        let result = if decimal {
-            serde_json::json!({ "address": format!("0x{address:x}"), "value": value })
+    fn write_register_record(
+        &self,
+        writer: &mut impl Write,
+        address: u32,
+        value: u8,
+        timestamp: Option<&str>,
+    ) -> io::Result<()> {
+        if self.json {
+            let mut result = if self.decimal_output {
+                serde_json::json!({ "address": format!("0x{address:x}"), "value": value })
+            } else {
+                serde_json::json!({ "address": format!("0x{address:x}"), "value": format!("0x{value:x}") })
+            };
+            if let Some(timestamp) = timestamp {
+                result["timestamp"] = timestamp.into();
+            }
+            serde_json::to_writer(&mut *writer, &result)?;
+            writeln!(writer)?;
         } else {
-            serde_json::json!({ "address": format!("0x{address:x}"), "value": format!("0x{value:x}") })
-        };
-        serde_json::to_writer(&mut *writer, &result)?;
-        writeln!(writer)?;
-    } else if decimal {
-        writeln!(writer, "Address 0x{address:x}={value}")?;
-    } else {
-        writeln!(writer, "Address 0x{address:x}=0x{value:x}")?;
+            if let Some(timestamp) = timestamp {
+                write!(writer, "{timestamp} ")?;
+            }
+            if self.decimal_output {
+                writeln!(writer, "Address 0x{address:x}={value}")?;
+            } else {
+                writeln!(writer, "Address 0x{address:x}=0x{value:x}")?;
+            }
+        }
+        writer.flush()
     }
-    writer.flush()
 }
 
 fn write_text(writer: &mut impl Write, text: &str, json: bool) -> io::Result<()> {
@@ -70,9 +95,71 @@ mod tests {
             (true, true, "{\"address\":\"0x20\",\"value\":42}\n"),
         ] {
             let mut bytes = Vec::new();
-            write_register(&mut bytes, 32, 42, json, decimal).unwrap();
+            OutputFormat {
+                json,
+                decimal_output: decimal,
+            }
+            .write_register(&mut bytes, 32, 42)
+            .unwrap();
             assert_eq!(String::from_utf8(bytes).unwrap(), expected);
         }
+    }
+
+    #[test]
+    fn polling_timestamps_are_utc_with_fixed_milliseconds_in_every_format() {
+        let timestamp = time::macros::datetime!(2026-09-17 19:30:00.123456789 -07:00);
+        for decimal_output in [false, true] {
+            for json in [false, true] {
+                let mut bytes = Vec::new();
+                OutputFormat {
+                    json,
+                    decimal_output,
+                }
+                .write_polled_register(&mut bytes, 32, 42, timestamp)
+                .unwrap();
+                assert_eq!(bytes.iter().filter(|&&byte| byte == b'\n').count(), 1);
+                assert!(bytes.ends_with(b"\n"));
+                if json {
+                    let record: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                    assert_eq!(record["timestamp"], "2026-09-18T02:30:00.123Z");
+                    assert_eq!(record["address"], "0x20");
+                    assert_eq!(
+                        record["value"],
+                        if decimal_output {
+                            serde_json::json!(42)
+                        } else {
+                            serde_json::json!("0x2a")
+                        }
+                    );
+                } else {
+                    let value = if decimal_output { "42" } else { "0x2a" };
+                    assert_eq!(
+                        String::from_utf8(bytes).unwrap(),
+                        format!("2026-09-18T02:30:00.123Z Address 0x20={value}\n")
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn polling_timestamp_keeps_zero_milliseconds() {
+        let mut bytes = Vec::new();
+        OutputFormat {
+            json: false,
+            decimal_output: false,
+        }
+        .write_polled_register(
+            &mut bytes,
+            32,
+            42,
+            time::macros::datetime!(2026-09-18 02:30 UTC),
+        )
+        .unwrap();
+        assert_eq!(
+            String::from_utf8(bytes).unwrap(),
+            "2026-09-18T02:30:00.000Z Address 0x20=0x2a\n"
+        );
     }
 
     #[test]
@@ -122,9 +209,22 @@ mod tests {
             }
         }
         let mut sink = Sink::default();
-        write_register(&mut sink, 0, 0, true, false).unwrap();
-        write_register(&mut sink, 0, 0, false, false).unwrap();
+        for json in [false, true] {
+            let format = OutputFormat {
+                json,
+                decimal_output: false,
+            };
+            format.write_register(&mut sink, 0, 0).unwrap();
+            format
+                .write_polled_register(
+                    &mut sink,
+                    0,
+                    0,
+                    time::macros::datetime!(2026-09-18 02:30 UTC),
+                )
+                .unwrap();
+        }
         write_text(&mut sink, "partial", false).unwrap();
-        assert_eq!(sink.flushes, 3);
+        assert_eq!(sink.flushes, 5);
     }
 }

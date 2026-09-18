@@ -14,6 +14,8 @@ Register writes require the reported readback to equal the requested value and f
 
 Polling keeps one connection open and allows one outstanding read at a time. The interval sets the minimum spacing between request starts, without catch-up bursts. A timeout or disconnect stops polling with a nonzero exit status.
 
+Each polled result includes the client's receipt timestamp in UTC with millisecond precision. Text output prefixes the register result with the timestamp. JSON output includes a `timestamp` string in RFC 3339 format. Each sample occupies one line and flushes immediately so scripts can save long-running logs. Single-operation output remains unchanged.
+
 The `--timeout` option defaults to `2s` and accepts duration units. Register operations finish when their expected result arrives or fail on timeout. Generic text commands collect output for the configured window after acknowledgement, then exit. Output collection starts before sending the request so early output is retained. Missing or rejected acknowledgement is an error. Finishing the collection window does not establish that an arbitrary command succeeded.
 
 For polling, the timeout applies to each operation, not to the total polling duration. The two-second default is an initial setting to validate against hardware.
